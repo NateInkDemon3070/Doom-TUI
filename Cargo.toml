@@ -1,0 +1,13 @@
+[package]
+name = "doom-tui"
+version = "0.1.0"
+edition = "2021"
+description = "TUI launcher para Doom, modpacks y engines"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+dirs = "6"
+
