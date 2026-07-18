@@ -1,62 +1,60 @@
 # doom-tui
 
-Launcher TUI para Doom hecho en Rust con [ratatui](https://github.com/ratatui-org/ratatui). Soporta múltiples engines (uzdoom, gzdoom, zandronum), selección de WADs y mods, configuración vía TOML, y navegación con teclado/mouse.
+A TUI launcher for Doom built in Rust with [ratatui](https://github.com/ratatui-org/ratatui). Supports multiple engines (uzdoom, gzdoom, zandronum), WAD and mod selection, TOML configuration, and keyboard/mouse navigation.
 
-## Instalación
+## Installation
 
 ```bash
-git clone https://github.com/TU_USUARIO/doom-tui.git
-cd doom-tui
+git clone https://github.com/NateInkDemon3070/Doom-TUI.git
+cd Doom-TUI
 ./install.sh
 ```
 
-Requisitos: [Rust](https://rustup.rs) (solo para compilar), ImageMagick (para el icono, opcional).
+Requirements: [Rust](https://rustup.rs) (only to compile), ImageMagick (optional, for icon resizing).
 
-El script detecta automáticamente una imagen en `~/Descargas/` o `~/Downloads/` y la usa como icono del launcher.
-
-## Uso
+## Usage
 
 ```bash
-doom-tui              # Abrir el launcher
-doom-tui --config     # Generar config de ejemplo
-doom-tui --help       # Mostrar ayuda
+doom-tui              # Open the launcher
+doom-tui --config     # Generate example config
+doom-tui --help       # Show help
 ```
 
-## Configuración
+## Configuration
 
-El archivo de configuración se encuentra en `~/.config/doom-tui/config.toml`.
+The config file is located at `~/.config/doom-tui/config.toml`.
 
-Se puede personalizar:
-- **Engines**: nombre, binario y argumentos por defecto
-- **Rutas**: carpetas de WADs y mods
-- **Tema**: colores de fondo, texto, acento, bordes
-- **Atajos**: teclas para salir, lanzar, editar, etc.
-- **Args extra**: argumentos que se pasan al engine al lanzar
+Customizable options:
+- **Engines**: name, binary, and default arguments
+- **Paths**: WAD and mod folders
+- **Theme**: background, text, accent, and border colors
+- **Keybinds**: keys for quit, launch, edit, etc.
+- **Extra args**: arguments passed to the engine on launch
 
-## Navegación
+## Keybinds
 
-| Tecla | Acción |
-|-------|--------|
-| `h/l` o `flechas izq/der` | Cambiar de tab |
-| `j/k` o `flechas arr/abajo` | Navegar lista |
-| `Enter/Space` | Seleccionar/alternar |
-| `e` | Editar (en Settings) |
-| `a` | Agregar (engine/arg) |
-| `d` | Eliminar (engine/arg) |
-| `g` | Lanzar juego |
-| `q` | Salir |
-| `?` | Ayuda |
-| `Ctrl+D/U` | Scroll rápido |
-| Mouse | Click para seleccionar |
+| Key | Action |
+|-----|--------|
+| `h/l` or `Left/Right arrows` | Switch tab |
+| `j/k` or `Up/Down arrows` | Navigate list |
+| `Enter/Space` | Select/toggle |
+| `e` | Edit (in Settings) |
+| `a` | Add (engine/arg) |
+| `d` | Remove (engine/arg) |
+| `g` | Launch game |
+| `q` | Quit |
+| `?` | Help |
+| `Ctrl+D/U` | Fast scroll |
+| Mouse | Click to select |
 
-## Estructura
+## Structure
 
 ```
-~/.config/doom-tui/config.toml                  # Configuración
-~/.local/share/applications/doom-tui.desktop     # Archivo .desktop
-~/.local/share/icons/hicolor/*/apps/doom-tui.png # Icono
+~/.config/doom-tui/config.toml                  # Configuration
+~/.local/share/applications/doom-tui.desktop     # Desktop entry
+~/.local/share/icons/hicolor/*/apps/doom-tui.png # Icon
 ```
 
-## Licencia
+## License
 
 MIT
