@@ -1,6 +1,6 @@
 # doom-tui
 
-A TUI launcher for Doom built in Rust with [ratatui](https://github.com/ratatui-org/ratatui). Supports multiple engines (uzdoom, gzdoom, zandronum), WAD and mod selection, TOML configuration, and keyboard/mouse navigation.
+A TUI launcher for Doom built in Rust. Supports multiple engines, WAD and mod selection, and keyboard/mouse navigation.
 
 ## Installation
 
@@ -10,7 +10,7 @@ cd Doom-TUI
 ./install.sh
 ```
 
-Requirements: [Rust](https://rustup.rs) (only to compile), ImageMagick (optional, for icon resizing).
+Requirements: [Rust](https://rustup.rs)
 
 ## Usage
 
@@ -46,15 +46,6 @@ Customizable options:
 | `?` | Help |
 | `Ctrl+D/U` | Fast scroll |
 | Mouse | Click to select |
-
-## Structure
-
-```
-~/.config/doom-tui/config.toml                  # Configuration
-~/.local/share/applications/doom-tui.desktop     # Desktop entry
-~/.local/share/icons/hicolor/*/apps/doom-tui.png # Icon
-```
-
 ## License
 
 MIT
