@@ -15,8 +15,27 @@ pub fn handle_events(app: &mut App) {
 }
 
 fn handle_normal(app: &mut App, key: KeyEvent) {
+    // Handle pending key sequences (gg, gt, gT)
+    if let Some(pending) = app.pending_key.take() {
+        match (pending, key.code) {
+            ('g', KeyCode::Char('g')) => {
+                go_to_top(app);
+                return;
+            }
+            ('g', KeyCode::Char('t')) => {
+                tab_next(app);
+                return;
+            }
+            ('g', KeyCode::Char('T')) => {
+                tab_prev(app);
+                return;
+            }
+            _ => {}
+        }
+    }
+
     match key.code {
-        // Quit
+        // Quit: q, Ctrl+c, Esc
         KeyCode::Char('q') => {
             if key.modifiers.contains(KeyModifiers::CONTROL) {
                 app.should_quit = true;
@@ -30,21 +49,17 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.should_quit = true;
         }
-
-        // Tab navigation: h/l, Left/Right, or 1-5
-        KeyCode::Char('h') | KeyCode::Left => {
-            let idx = app.tab.index();
-            if idx > 0 {
-                app.tab = Tab::from_index(idx - 1);
-                app.scroll_offset = 0;
-            }
+        KeyCode::Esc => {
+            app.status_msg.clear();
         }
-        KeyCode::Char('l') | KeyCode::Right => {
-            let idx = app.tab.index();
-            if idx < Tab::all().len() - 1 {
-                app.tab = Tab::from_index(idx + 1);
-                app.scroll_offset = 0;
-            }
+
+        // Tab navigation: h/l, arrows, Tab/S-Tab, gt/gT, 1-5
+        KeyCode::Char('h') | KeyCode::Left => tab_prev(app),
+        KeyCode::Char('l') | KeyCode::Right => tab_next(app),
+        KeyCode::Tab => tab_next(app),
+        KeyCode::BackTab => tab_prev(app),
+        KeyCode::Char('g') => {
+            app.pending_key = Some('g');
         }
         KeyCode::Char('1') => { app.tab = Tab::Launch; app.scroll_offset = 0; }
         KeyCode::Char('2') => { app.tab = Tab::Wads; app.scroll_offset = 0; }
@@ -56,124 +71,175 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
         KeyCode::Char('j') | KeyCode::Down => handle_down(app),
         KeyCode::Char('k') | KeyCode::Up => handle_up(app),
 
-        // Scroll: Ctrl+d / Ctrl+u
+        // Scroll: Ctrl+d / Ctrl+u (half page), Ctrl+b/Ctrl+f (page), PageUp/PageDown
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            for _ in 0..5 {
-                if app.tab == Tab::Mods {
-                    let max = app.mod_list.len();
-                    if max > 0 && app.mod_cursor + 1 < max {
-                        app.mod_cursor += 1;
-                        let visible = 20usize;
-                        if app.mod_cursor >= app.scroll_offset + visible {
-                            app.scroll_offset = app.mod_cursor.saturating_sub(visible - 1);
-                        }
-                    }
-                } else {
-                    handle_down(app);
-                }
-            }
+            for _ in 0..10 { handle_down(app); }
         }
         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            for _ in 0..5 {
-                if app.tab == Tab::Mods {
-                    if app.mod_cursor > 0 {
-                        app.mod_cursor -= 1;
-                        if app.mod_cursor < app.scroll_offset {
-                            app.scroll_offset = app.mod_cursor;
-                        }
-                    }
-                } else {
-                    handle_up(app);
-                }
-            }
+            for _ in 0..10 { handle_up(app); }
         }
+        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            for _ in 0..20 { handle_up(app); }
+        }
+        KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            for _ in 0..20 { handle_down(app); }
+        }
+        KeyCode::PageUp => {
+            for _ in 0..20 { handle_up(app); }
+        }
+        KeyCode::PageDown => {
+            for _ in 0..20 { handle_down(app); }
+        }
+
+        // Go to top/bottom: G
+        KeyCode::Char('G') => go_to_bottom(app),
 
         // Select: Enter or Space
         KeyCode::Enter | KeyCode::Char(' ') => handle_select(app),
 
-        // Tab-specific actions
-        KeyCode::Char('e') => {
-            if app.tab == Tab::Settings {
-                match app.settings_cursor {
-                    0 => {
-                        // Change engine from settings
-                        app.input_mode = InputMode::Insert;
-                        app.new_path_buffer = app.config.general.active_engine.clone();
-                        app.path_edit_target = None;
-                        app.engine_edit_mode = true;
-                        app.status_msg = "Escribi el nombre del engine:".to_string();
-                    }
-                    1 => {
-                        app.input_mode = InputMode::Insert;
-                        app.path_edit_target = Some(PathEditTarget::Iwads);
-                        app.new_path_buffer = app.config.paths.iwads.to_string_lossy().to_string();
-                    }
-                    2 => {
-                        app.input_mode = InputMode::Insert;
-                        app.path_edit_target = Some(PathEditTarget::Mods);
-                        app.new_path_buffer = app.config.paths.mods.to_string_lossy().to_string();
-                    }
-                    3 => {
-                        app.input_mode = InputMode::Insert;
-                        app.args_editing = true;
-                        app.new_path_buffer = app.config.engine_args.join(" ");
-                    }
-                    _ => {}
-                }
-            } else if app.tab == Tab::Engines {
-                if let Some(name) = app.config.engines.get(app.engine_cursor).map(|e| e.name.clone()) {
-                    app.config.general.active_engine = name.clone();
-                    app.status_msg = format!("Engine activo: {}", name);
-                }
-            }
+        // Edit/Focus input: i (like rmpc)
+        KeyCode::Char('i') => handle_edit(app),
+
+        // Add: a
+        KeyCode::Char('a') => handle_add(app),
+
+        // Delete: D (uppercase, like rmpc)
+        KeyCode::Char('D') => handle_delete(app),
+
+        // Refresh/rescan: r
+        KeyCode::Char('r') => {
+            app.refresh_lists();
+            app.status_msg = "Listas actualizadas".to_string();
         }
 
-        // Launch
-        KeyCode::Char('g') if app.tab == Tab::Launch => {
-            launch_game(app);
-        }
-
-        // Engine tab: add/remove
-        KeyCode::Char('a') if app.tab == Tab::Engines => {
-            app.input_mode = InputMode::Insert;
-            app.engine_edit_mode = true;
-            app.new_engine_name.clear();
-            app.new_engine_binary.clear();
-            app.status_msg = "Nombre del engine:".to_string();
-        }
-        KeyCode::Char('d') if app.tab == Tab::Engines => {
-            if let Some(engine) = app.config.engines.get(app.engine_cursor) {
-                let name = engine.name.clone();
-                app.confirm_action = Some(ConfirmAction::RemoveEngine(name));
-                app.input_mode = InputMode::Confirm;
-            }
-        }
-
-        // Settings: a to add arg
-        KeyCode::Char('a') if app.tab == Tab::Settings => {
-            app.input_mode = InputMode::Insert;
-            app.args_editing = true;
-            app.new_path_buffer.clear();
-            app.status_msg = "Agregar argumento:".to_string();
-        }
-
-        // Settings: d to remove arg
-        KeyCode::Char('d') if app.tab == Tab::Settings => {
-            if !app.config.engine_args.is_empty() && app.args_cursor < app.config.engine_args.len() {
-                app.config.engine_args.remove(app.args_cursor);
-                if app.args_cursor >= app.config.engine_args.len() && app.args_cursor > 0 {
-                    app.args_cursor -= 1;
-                }
-                app.status_msg = "Argumento eliminado".to_string();
-            }
-        }
-
-        // Help
+        // Help: ?
         KeyCode::Char('?') => {
-            app.status_msg = "j/k/flechas:navegar  h/l/Tab:tabs  Enter:seleccionar  q:salir  e:editar  a:agregar  d:eliminar  g:lanzar  mouse:click".to_string();
+            app.status_msg = "j/k:navegar  h/l:tabs  Enter/Space:seleccionar  i:editar  a:agregar  D:eliminar  r:refrescar  gg/G:top/bottom  ?:ayuda".to_string();
         }
 
         _ => {}
+    }
+}
+
+fn tab_next(app: &mut App) {
+    let idx = app.tab.index();
+    if idx < Tab::all().len() - 1 {
+        app.tab = Tab::from_index(idx + 1);
+        app.scroll_offset = 0;
+        app.mod_cursor = 0;
+    }
+}
+
+fn tab_prev(app: &mut App) {
+    let idx = app.tab.index();
+    if idx > 0 {
+        app.tab = Tab::from_index(idx - 1);
+        app.scroll_offset = 0;
+        app.mod_cursor = 0;
+    }
+}
+
+fn go_to_top(app: &mut App) {
+    match app.tab {
+        Tab::Wads => { app.selected_wad = if app.wad_list.is_empty() { None } else { Some(0) }; }
+        Tab::Mods => { app.mod_cursor = 0; app.scroll_offset = 0; }
+        Tab::Engines => { app.engine_cursor = 0; }
+        Tab::Settings => { app.settings_cursor = 0; }
+        Tab::Launch => {}
+    }
+}
+
+fn go_to_bottom(app: &mut App) {
+    match app.tab {
+        Tab::Wads => {
+            if !app.wad_list.is_empty() {
+                app.selected_wad = Some(app.wad_list.len() - 1);
+            }
+        }
+        Tab::Mods => {
+            if !app.mod_list.is_empty() {
+                app.mod_cursor = app.mod_list.len() - 1;
+                let visible = 20usize;
+                if app.mod_cursor >= app.scroll_offset + visible {
+                    app.scroll_offset = app.mod_cursor.saturating_sub(visible - 1);
+                }
+            }
+        }
+        Tab::Engines => {
+            if !app.config.engines.is_empty() {
+                app.engine_cursor = app.config.engines.len() - 1;
+            }
+        }
+        Tab::Settings => { app.settings_cursor = 3; }
+        Tab::Launch => {}
+    }
+}
+
+fn handle_edit(app: &mut App) {
+    if app.tab == Tab::Settings {
+        match app.settings_cursor {
+            0 => {
+                app.input_mode = InputMode::Insert;
+                app.new_path_buffer = app.config.general.active_engine.clone();
+                app.path_edit_target = None;
+                app.engine_edit_mode = true;
+                app.status_msg = "Escribi el nombre del engine:".to_string();
+            }
+            1 => {
+                app.input_mode = InputMode::Insert;
+                app.path_edit_target = Some(PathEditTarget::Iwads);
+                app.new_path_buffer = app.config.paths.iwads.to_string_lossy().to_string();
+            }
+            2 => {
+                app.input_mode = InputMode::Insert;
+                app.path_edit_target = Some(PathEditTarget::Mods);
+                app.new_path_buffer = app.config.paths.mods.to_string_lossy().to_string();
+            }
+            3 => {
+                app.input_mode = InputMode::Insert;
+                app.args_editing = true;
+                app.new_path_buffer = app.config.engine_args.join(" ");
+            }
+            _ => {}
+        }
+    } else if app.tab == Tab::Engines {
+        if let Some(name) = app.config.engines.get(app.engine_cursor).map(|e| e.name.clone()) {
+            app.config.general.active_engine = name.clone();
+            app.status_msg = format!("Engine activo: {}", name);
+        }
+    }
+}
+
+fn handle_add(app: &mut App) {
+    if app.tab == Tab::Engines {
+        app.input_mode = InputMode::Insert;
+        app.engine_edit_mode = true;
+        app.new_engine_name.clear();
+        app.new_engine_binary.clear();
+        app.status_msg = "Nombre del engine:".to_string();
+    } else if app.tab == Tab::Settings {
+        app.input_mode = InputMode::Insert;
+        app.args_editing = true;
+        app.new_path_buffer.clear();
+        app.status_msg = "Agregar argumento:".to_string();
+    }
+}
+
+fn handle_delete(app: &mut App) {
+    if app.tab == Tab::Engines {
+        if let Some(engine) = app.config.engines.get(app.engine_cursor) {
+            let name = engine.name.clone();
+            app.confirm_action = Some(ConfirmAction::RemoveEngine(name));
+            app.input_mode = InputMode::Confirm;
+        }
+    } else if app.tab == Tab::Settings {
+        if !app.config.engine_args.is_empty() && app.args_cursor < app.config.engine_args.len() {
+            app.config.engine_args.remove(app.args_cursor);
+            if app.args_cursor >= app.config.engine_args.len() && app.args_cursor > 0 {
+                app.args_cursor -= 1;
+            }
+            app.status_msg = "Argumento eliminado".to_string();
+        }
     }
 }
 
@@ -187,7 +253,6 @@ fn handle_insert(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Enter => {
             if app.engine_edit_mode && app.tab == Tab::Settings {
-                // Change active engine from settings
                 let name = app.new_path_buffer.trim().to_string();
                 if !name.is_empty() {
                     if app.config.engines.iter().any(|e| e.name == name) {
@@ -243,7 +308,7 @@ fn handle_insert(app: &mut App, key: KeyEvent) {
 
 fn handle_confirm(app: &mut App, key: KeyEvent) {
     match key.code {
-        KeyCode::Char('y') | KeyCode::Char('s') => {
+        KeyCode::Char('y') | KeyCode::Char('s') | KeyCode::Enter => {
             if let Some(action) = app.confirm_action.take() {
                 match action {
                     ConfirmAction::LaunchGame => {
@@ -287,6 +352,7 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
                     if x >= tab_x && x < tab_x + tab_width {
                         app.tab = Tab::from_index(i);
                         app.scroll_offset = 0;
+                        app.mod_cursor = 0;
                         break;
                     }
                 }
@@ -295,14 +361,7 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
 
             // Body area (row 3+)
             match app.tab {
-                Tab::Launch => {
-                    // Left panel: WAD area or Engine area
-                    // Right panel: Mods area
-                    let half = app.config.paths.iwads.to_string_lossy().len() as u16 + 20;
-                    if x < half {
-                        // Could click on engine list
-                    }
-                }
+                Tab::Launch => {}
                 Tab::Wads => {
                     let list_start_y = 4u16;
                     let idx = (y as i32 - list_start_y as i32) as usize;
@@ -327,7 +386,6 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
                     let idx = (y as i32 - list_start_y as i32) as usize;
                     if idx < app.config.engines.len() {
                         app.engine_cursor = idx;
-                        // Click to activate
                         let name = app.config.engines[idx].name.clone();
                         app.config.general.active_engine = name.clone();
                         app.status_msg = format!("Engine activo: {}", name);
@@ -338,31 +396,7 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
                     let idx = (y as i32 - list_start_y as i32) as usize;
                     if idx <= 3 {
                         app.settings_cursor = idx;
-                        // Double-click effect: activate edit
-                        match idx {
-                            0 => {
-                                app.input_mode = InputMode::Insert;
-                                app.new_path_buffer = app.config.general.active_engine.clone();
-                                app.engine_edit_mode = true;
-                                app.status_msg = "Escribi el nombre del engine:".to_string();
-                            }
-                            1 => {
-                                app.input_mode = InputMode::Insert;
-                                app.path_edit_target = Some(PathEditTarget::Iwads);
-                                app.new_path_buffer = app.config.paths.iwads.to_string_lossy().to_string();
-                            }
-                            2 => {
-                                app.input_mode = InputMode::Insert;
-                                app.path_edit_target = Some(PathEditTarget::Mods);
-                                app.new_path_buffer = app.config.paths.mods.to_string_lossy().to_string();
-                            }
-                            3 => {
-                                app.input_mode = InputMode::Insert;
-                                app.args_editing = true;
-                                app.new_path_buffer = app.config.engine_args.join(" ");
-                            }
-                            _ => {}
-                        }
+                        handle_edit(app);
                     }
                 }
             }
@@ -385,7 +419,6 @@ fn handle_up(app: &mut App) {
         Tab::Mods => {
             if app.mod_cursor > 0 {
                 app.mod_cursor -= 1;
-                // Keep cursor visible: scroll up if cursor goes above viewport
                 if app.mod_cursor < app.scroll_offset {
                     app.scroll_offset = app.mod_cursor;
                 }
@@ -414,8 +447,6 @@ fn handle_down(app: &mut App) {
             let max = app.mod_list.len();
             if max > 0 && app.mod_cursor + 1 < max {
                 app.mod_cursor += 1;
-                // Keep cursor visible: we need to know visible rows, use a reasonable default
-                // The actual visible rows will be computed in UI, but we can estimate ~20
                 let visible = 20usize;
                 if app.mod_cursor >= app.scroll_offset + visible {
                     app.scroll_offset = app.mod_cursor.saturating_sub(visible - 1);
@@ -468,30 +499,7 @@ fn handle_select(app: &mut App) {
             }
         }
         Tab::Settings => {
-            match app.settings_cursor {
-                0 => {
-                    app.input_mode = InputMode::Insert;
-                    app.new_path_buffer = app.config.general.active_engine.clone();
-                    app.engine_edit_mode = true;
-                    app.status_msg = "Escribi el nombre del engine:".to_string();
-                }
-                1 => {
-                    app.input_mode = InputMode::Insert;
-                    app.path_edit_target = Some(PathEditTarget::Iwads);
-                    app.new_path_buffer = app.config.paths.iwads.to_string_lossy().to_string();
-                }
-                2 => {
-                    app.input_mode = InputMode::Insert;
-                    app.path_edit_target = Some(PathEditTarget::Mods);
-                    app.new_path_buffer = app.config.paths.mods.to_string_lossy().to_string();
-                }
-                3 => {
-                    app.input_mode = InputMode::Insert;
-                    app.args_editing = true;
-                    app.new_path_buffer = app.config.engine_args.join(" ");
-                }
-                _ => {}
-            }
+            handle_edit(app);
         }
     }
 }

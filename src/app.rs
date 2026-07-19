@@ -75,6 +75,7 @@ pub struct App {
     pub path_edit_target: Option<PathEditTarget>,
     pub args_cursor: usize,
     pub args_editing: bool,
+    pub pending_key: Option<char>,
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +120,7 @@ impl App {
             path_edit_target: None,
             args_cursor: 0,
             args_editing: false,
+            pending_key: None,
         };
         app.selected_mods = vec![false; app.mod_list.len()];
         app

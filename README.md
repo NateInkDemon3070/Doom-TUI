@@ -35,16 +35,23 @@ Customizable options:
 
 | Key | Action |
 |-----|--------|
-| `h/l` or `Left/Right arrows` | Switch tab |
-| `j/k` or `Up/Down arrows` | Navigate list |
+| `j/k` or `Up/Down` | Navigate list |
+| `h/l` or `Left/Right` | Switch tab |
+| `Tab` / `S-Tab` | Next/previous tab |
+| `1-5` | Switch to tab directly |
 | `Enter/Space` | Select/toggle |
-| `e` | Edit (in Settings) |
+| `i` | Edit (focus input) |
 | `a` | Add (engine/arg) |
-| `d` | Remove (engine/arg) |
-| `g` | Launch game |
-| `q` | Quit |
-| `?` | Help |
-| `Ctrl+D/U` | Fast scroll |
+| `D` | Delete (engine/arg) |
+| `r` | Refresh/rescan lists |
+| `gg` | Go to top |
+| `G` | Go to bottom |
+| `Ctrl+d/u` | Scroll half page |
+| `Ctrl+b/f` or `PageUp/Down` | Scroll full page |
+| `q` | Quit (from Launch tab) or go back |
+| `Esc` | Clear status |
+| `?` | Show help |
+| `Ctrl+c` | Quit |
 | Mouse | Click to select |
 ## License
 
