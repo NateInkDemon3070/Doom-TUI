@@ -53,6 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| ui::draw(f, &app))?;
 
         if app.should_quit {
+            app.config.save();
             break;
         }
 
